@@ -38,3 +38,6 @@ Thumbs.db
 # SvelteKit
 .svelte-kit/
 build/
+
+# Project planning
+project-plan.md

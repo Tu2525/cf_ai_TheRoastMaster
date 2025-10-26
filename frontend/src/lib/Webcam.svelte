@@ -49,7 +49,9 @@
 	{#if error}
 		<div class="error">{error}</div>
 	{/if}
-	<video bind:this={videoElement} autoplay playsinline class="video-feed" />
+	<video bind:this={videoElement} autoplay playsinline muted class="video-feed">
+		<track kind="captions" label="captions" default src="data:text/vtt;base64,V0VCVlRUCg==" />
+	</video>
 </div>
 
 <style>
