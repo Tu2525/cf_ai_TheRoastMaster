@@ -175,6 +175,11 @@ npm run dev
     └── ... (9 .mp3 files)
 ```
 
+## Initial Plans
+
+The plan I had in mind was to make a "Roast-a-pedia" where, I going to eventually fine-tune it to an LLM, but the entire situation would have been 10x complicated for a simple project.
+
+
 ## AI Design Rationale
 
 This section details the AI-related design choices for this project and outlines how it could be expanded using more of Cloudflare's AI and stateful services, as suggested in the internship prompt.
