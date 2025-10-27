@@ -5,18 +5,20 @@
 	let stream: MediaStream | null = null;
 	let error: string = '';
 
-	onMount(async () => {
-		try {
-			stream = await navigator.mediaDevices.getUserMedia({
-				video: { width: 1280, height: 720 }
-			});
-			if (videoElement) {
-				videoElement.srcObject = stream;
+	onMount(() => {
+		(async () => {
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					video: { width: 1280, height: 720 }
+				});
+				if (videoElement) {
+					videoElement.srcObject = stream;
+				}
+			} catch (err) {
+				error = 'Failed to access camera: ' + (err as Error).message;
+				console.error('Error accessing camera:', err);
 			}
-		} catch (err) {
-			error = 'Failed to access camera: ' + (err as Error).message;
-			console.error('Error accessing camera:', err);
-		}
+		})();
 
 		return () => {
 			if (stream) {
@@ -25,15 +27,15 @@
 		};
 	});
 
-	export function captureFrame(): Blob | null {
-		if (!videoElement || !videoElement.srcObject || videoElement.readyState < 4 || videoElement.videoWidth === 0 || videoElement.videoHeight === 0 || videoElement.paused) return null;
+	export function captureFrame(): Promise<Blob | null> {
+		if (!videoElement || !videoElement.srcObject || videoElement.readyState < 4 || videoElement.videoWidth === 0 || videoElement.videoHeight === 0 || videoElement.paused) return Promise.resolve(null);
 
 		const canvas = document.createElement('canvas');
 		canvas.width = 640;
 		canvas.height = 480;
 
 		const ctx = canvas.getContext('2d');
-		if (!ctx) return null;
+		if (!ctx) return Promise.resolve(null);
 
 		ctx.drawImage(videoElement, 0, 0, 640, 480);
 

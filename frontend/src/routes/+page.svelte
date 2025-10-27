@@ -272,11 +272,5 @@
 		margin-top: 0;
 		color: #ffd700;
 	}
-
-	.roast-display p {
-		font-size: 1.2rem;
-		line-height: 1.6;
-		text-align: left;
-	}
 </style>
 
