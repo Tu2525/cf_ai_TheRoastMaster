@@ -26,21 +26,21 @@
 	});
 
 	export function captureFrame(): Blob | null {
-		if (!videoElement) return null;
+		if (!videoElement || !videoElement.srcObject || videoElement.readyState < 4 || videoElement.videoWidth === 0 || videoElement.videoHeight === 0 || videoElement.paused) return null;
 
 		const canvas = document.createElement('canvas');
-		canvas.width = videoElement.videoWidth;
-		canvas.height = videoElement.videoHeight;
+		canvas.width = 640;
+		canvas.height = 480;
 
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return null;
 
-		ctx.drawImage(videoElement, 0, 0);
+		ctx.drawImage(videoElement, 0, 0, 640, 480);
 
 		return new Promise((resolve) => {
 			canvas.toBlob((blob) => {
 				resolve(blob);
-			}, 'image/jpeg', 0.95);
+			}, 'image/jpeg', 0.8);
 		});
 	}
 </script>

@@ -6,11 +6,9 @@
 	let roastText: string = '';
 	let isLoading: boolean = false;
 	let audioElement: HTMLAudioElement | null = null;
-	let testMode: 'text' | 'image' = 'text';
-	let textInput: string = '';
+	let isSpeaking: boolean = false;
+	let ttsAudio: HTMLAudioElement | null = null;
 
-	// This will be your deployed worker URL
-	// For now, we'll use a placeholder - you'll update this after deploying the backend
 	const WORKER_URL = 'https://backend.theroastbot.workers.dev';
 
 	async function handleRoastMe() {
@@ -22,7 +20,7 @@
 		try {
 			// Capture frame from webcam
 			const blob = await webcamComponent.captureFrame();
-			if (!blob) {
+			if (!blob || blob.size === 0) {
 				roastText = 'Failed to capture image from webcam';
 				return;
 			}
@@ -43,11 +41,16 @@
 			const data = await response.json();
 			roastText = data.roast_text;
 
-			// Play sound effect if available
-			if (data.sound_effect && audioElement) {
-				audioElement.src = data.sound_effect;
-				audioElement.play();
+			// Play audio if provided
+			if (data.audio_file && audioElement) {
+				audioElement.src = data.audio_file;
+				audioElement.play().catch(err => console.error('Error playing audio:', err));
 			}
+
+			// Automatically speak the roast
+			setTimeout(() => {
+				speakRoastAutomatic(data.roast_text);
+			}, 500);
 		} catch (error) {
 			roastText = 'Error: ' + (error as Error).message;
 			console.error('Error:', error);
@@ -56,43 +59,114 @@
 		}
 	}
 
-	async function handleTextRoast() {
-		if (!textInput.trim()) {
-			roastText = 'Please enter some text to roast!';
-			return;
-		}
+	function speakRoast() {
+		// Remove markdown formatting for TTS
+		const plainText = roastText
+			.replace(/\*\*/g, '')
+			.replace(/\*/g, '')
+			.replace(/`/g, '')
+			.replace(/__/g, '')
+			.replace(/_/g, '')
+			.replace(/\n/g, ' ');
 
-		isLoading = true;
-		roastText = '';
+		const utterance = new SpeechSynthesisUtterance(plainText);
+		utterance.rate = 1;
+		utterance.pitch = 1;
+		utterance.volume = 1;
 
+		utterance.onstart = () => {
+			isSpeaking = true;
+		};
+
+		utterance.onend = () => {
+			isSpeaking = false;
+		};
+
+		utterance.onerror = () => {
+			isSpeaking = false;
+		};
+
+		speechSynthesis.speak(utterance);
+	}
+
+	function speakRoastAutomatic(text: string) {
+		// Remove markdown formatting for TTS
+		const plainText = text
+			.replace(/\*\*/g, '')
+			.replace(/\*/g, '')
+			.replace(/`/g, '')
+			.replace(/__/g, '')
+			.replace(/_/g, '')
+			.replace(/\n/g, ' ');
+
+		isSpeaking = true;
+
+		// Use Web Speech API
+		fallbackToWebSpeech(plainText);
+	}
+
+	function fallbackToWebSpeech(text: string) {
 		try {
-			console.log('Sending to:', WORKER_URL + '/text');
-			console.log('Data:', { text: textInput });
+			const utterance = new SpeechSynthesisUtterance(text);
+			utterance.rate = 1;
+			utterance.pitch = 1;
+			utterance.volume = 1;
 
-			// Send text to backend
-			const response = await fetch(WORKER_URL + '/text', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({ text: textInput })
-			});
+			utterance.onstart = () => {
+				isSpeaking = true;
+			};
 
-			console.log('Response status:', response.status);
-			const data = await response.json();
-			console.log('Response data:', data);
+			utterance.onend = () => {
+				isSpeaking = false;
+			};
 
-			if (data.error) {
-				roastText = `Error: ${data.error}. ${data.note || ''}\n\nDetails: ${data.details || 'No details'}`;
-			} else {
-				roastText = data.roast_text || 'No roast generated';
-			}
+			utterance.onerror = () => {
+				isSpeaking = false;
+				console.error('Speech synthesis error');
+			};
+
+			speechSynthesis.speak(utterance);
 		} catch (error) {
-			roastText = 'Error: ' + (error as Error).message;
-			console.error('Error:', error);
-		} finally {
-			isLoading = false;
+			console.error('Web Speech API error:', error);
+			isSpeaking = false;
 		}
+	}
+
+	function stopSpeaking() {
+		speechSynthesis.cancel();
+		isSpeaking = false;
+	}
+
+	function markdownToHtml(markdown: string): string {
+		let html = markdown
+			// Code blocks
+			.replace(/```[\s\S]*?```/g, (match) => {
+				const code = match.replace(/```/g, '').trim();
+				return `<pre><code>${escapeHtml(code)}</code></pre>`;
+			})
+			.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') //bold
+			.replace(/\*(.+?)\*/g, '<em>$1</em>') // Italic
+			
+			.replace(/`(.+?)`/g, '<code>$1</code>') // Inline code
+			
+			.replace(/### (.+?)(\n|$)/g, '<h3>$1</h3>') // Headings
+			.replace(/## (.+?)(\n|$)/g, '<h2>$1</h2>') 
+			.replace(/# (.+?)(\n|$)/g, '<h1>$1</h1>')
+			.replace(/\n\n/g, '</p><p>') // Paragraphs
+			.replace(/\n/g, '<br>'); // Line breaks
+		
+		return `<p>${html}</p>`;
+	}
+
+	function escapeHtml(text: string): string {
+		const map: { [key: string]: string } = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#039;'
+		};
+		return text.replace(/[&<>"']/g, (m) => map[m]);
 	}
 </script>
 
@@ -100,51 +174,24 @@
 	<h1>AI Roast Master</h1>
 	<p class="subtitle">Prepare to be roasted by AI!</p>
 
-	<div class="mode-selector">
-		<button 
-			class="mode-button" 
-			class:active={testMode === 'text'}
-			on:click={() => testMode = 'text'}
-		>
-			Text Mode
-		</button>
-		<button 
-			class="mode-button" 
-			class:active={testMode === 'image'}
-			on:click={() => testMode = 'image'}
-		>
-			Camera Mode
-		</button>
+	<div class="webcam-section">
+		<Webcam bind:this={webcamComponent} bind:videoElement />
 	</div>
 
-	{#if testMode === 'text'}
-		<div class="text-mode">
-			<textarea 
-				bind:value={textInput}
-				placeholder="Describe yourself or enter anything you want roasted..."
-				rows="4"
-				disabled={isLoading}
-			></textarea>
-			<button on:click={handleTextRoast} disabled={isLoading} class="roast-button">
-				{isLoading ? 'Roasting...' : 'Roast This!'}
-			</button>
-		</div>
-	{:else}
-		<div class="webcam-section">
-			<Webcam bind:this={webcamComponent} bind:videoElement />
-		</div>
-
-		<div class="controls">
-			<button on:click={handleRoastMe} disabled={isLoading} class="roast-button">
-				{isLoading ? 'Roasting...' : 'Roast Me!'}
-			</button>
-		</div>
-	{/if}
+	<div class="controls">
+		<button on:click={handleRoastMe} disabled={isLoading || isSpeaking} class="roast-button">
+			{isLoading ? 'Roasting...' : 'Roast Me!'}
+		</button>
+	</div>
 
 	{#if roastText}
 		<div class="roast-display">
 			<h2>Your Roast:</h2>
-			<p>{roastText}</p>
+			<div class="roast-content">
+				{@html markdownToHtml(roastText)}
+			</div>
+			<div class="roast-controls">
+			</div>
 		</div>
 	{/if}
 
@@ -179,64 +226,6 @@
 		font-size: 1.2rem;
 		margin-bottom: 2rem;
 		opacity: 0.9;
-	}
-
-	.mode-selector {
-		display: flex;
-		gap: 1rem;
-		justify-content: center;
-		margin-bottom: 2rem;
-	}
-
-	.mode-button {
-		background: rgba(255, 255, 255, 0.2);
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		color: white;
-		padding: 0.75rem 1.5rem;
-		font-size: 1rem;
-		font-weight: bold;
-		border-radius: 25px;
-		cursor: pointer;
-		transition: all 0.3s ease;
-	}
-
-	.mode-button:hover {
-		background: rgba(255, 255, 255, 0.3);
-		transform: translateY(-2px);
-	}
-
-	.mode-button.active {
-		background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-		border-color: transparent;
-		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-	}
-
-	.text-mode {
-		max-width: 600px;
-		margin: 0 auto;
-	}
-
-	textarea {
-		width: 100%;
-		padding: 1rem;
-		font-size: 1rem;
-		border-radius: 12px;
-		border: 2px solid rgba(255, 255, 255, 0.3);
-		background: rgba(255, 255, 255, 0.1);
-		color: white;
-		resize: vertical;
-		margin-bottom: 1rem;
-		font-family: inherit;
-	}
-
-	textarea::placeholder {
-		color: rgba(255, 255, 255, 0.6);
-	}
-
-	textarea:focus {
-		outline: none;
-		border-color: rgba(255, 255, 255, 0.6);
-		background: rgba(255, 255, 255, 0.15);
 	}
 
 	.webcam-section {

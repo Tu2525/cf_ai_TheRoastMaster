@@ -1,0 +1,6 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "ai-roast-master",
+	"pages_build_output_dir": "build",
+	"compatibility_date": "2025-10-26"
+}
