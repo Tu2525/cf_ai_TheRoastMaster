@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Alert.mp3",
+    "description": "A 3 alert beep sound use it to do a nerd alert"
+  },
+  {
+    "name": "boom.mp3",
+    "description": "A loud explosion or boom sound effect for dramatic emphasis"
+  },
+  {
+    "name": "ClownSliding.mp3",
+    "description": "A funny clown sliding sound, perfect for silly or comedic situations"
+  },
+  {
+    "name": "FAAHHH.mp3",
+    "description": "A surprised or scared 'faaahhh' scream for shocking revelations"
+  },
+  {
+    "name": "kitchennightmare.mp3",
+    "description": "Dramatic sound effect from Kitchen Nightmares, great for critical feedback"
+  },
+  {
+    "name": "OhioScream.mp3",
+    "description": "A high-pitched scream, often used for extreme reactions or Ohio memes"
+  },
+  {
+    "name": "OhMyGod.mp3",
+    "description": "An 'oh my god' exclamation for moments of surprise or disbelief"
+  },
+  {
+    "name": "wotthehell.mp3",
+    "description": "A 'what the hell' sound for confused or annoyed reactions"
+  },
+  {
+    "name": "ZeldaFloat.mp3",
+    "description": "A magical floating sound from Zelda games, for whimsical or positive moments"
+  }
+]

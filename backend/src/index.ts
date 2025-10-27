@@ -5,6 +5,8 @@ import { DurableObject } from "cloudflare:workers";
  * This Worker uses Google Gemini API to analyze images and generate roasts
  */
 
+import sounds from '../sounds.json';
+
 /** A Durable Object's behavior is defined in an exported Javascript class */
 export class MyDurableObject extends DurableObject {
 	constructor(ctx: DurableObjectState, env: Env) {
@@ -24,15 +26,6 @@ function addCorsHeaders(response: Response): Response {
 	newResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type');
 	return newResponse;
 }
-
-// List of roast templates for variety
-const roastTemplates = [
-	"Wow, {description}. That's certainly... a choice.",
-	"I've seen a lot in my time, but {description}? That's something special.",
-	"Looking at you with {description} - bold strategy, let's see if it pays off.",
-	"{description}... Did you lose a bet or is this your natural state?",
-	"So we're just out here with {description} and calling it a day? Okay then.",
-];
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
@@ -57,62 +50,6 @@ export default {
 				}));
 			}
 
-			const url = new URL(request.url);
-			
-			// Text-only mode for testing
-			if (url.pathname === '/text') {
-				const body: any = await request.json();
-				const description = body.text || "something random";
-
-				// Generate a roast using Gemini
-				const roastPrompt = `You are a witty comedian. Create a funny, lighthearted roast based on: "${description}". Keep it short (2 sentences max), clever, and never mean-spirited.`;
-
-				const geminiResponse = await fetch(
-					`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-					{
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({
-							contents: [{
-								role: 'user',
-								parts: [{
-									text: roastPrompt
-								}]
-							}]
-						}),
-					}
-				);
-
-				if (!geminiResponse.ok) {
-					const errorText = await geminiResponse.text();
-					console.error('Gemini API error:', errorText);
-					return addCorsHeaders(new Response(JSON.stringify({
-						error: 'Gemini API error',
-						status: geminiResponse.status,
-						details: errorText,
-						note: 'Check your API key or quota. Also ensure model name and API version are correct.'
-					}), {
-						status: 200,
-						headers: { 'Content-Type': 'application/json' }
-					}));
-				}
-
-				const geminiData: any = await geminiResponse.json();
-				const roastText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text 
-					|| roastTemplates[Math.floor(Math.random() * roastTemplates.length)].replace('{description}', description);
-
-				return addCorsHeaders(new Response(JSON.stringify({
-					roast_text: roastText,
-					sound_effect: null,
-					description: description
-				}), {
-					status: 200,
-					headers: { 'Content-Type': 'application/json' }
-				}));
-			}
-
 			// Image mode - use Gemini Vision
 			const imageData = await request.arrayBuffer();
 			
@@ -129,7 +66,14 @@ export default {
 			const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageData)));
 
 			// Use Gemini Pro Vision to analyze and roast
-			const visionPrompt = "You are a witty comedian. Look at this image and create a funny, lighthearted roast about what you see. Keep it short (2-3 sentences), clever, and never mean-spirited. Focus on appearance, clothing, expression, or setting.";
+			const soundList = sounds.map(s => `${s.name}: ${s.description}`).join('\n');
+			const visionPrompt = `You are a blunt, honest, yet funny tech hiring manager, you make check how the user looks and make a remark about their looks, settings or clothing in a humorous way, keep it short.
+
+Also, choose the most appropriate sound effect from this list based on the roast you give:
+
+${soundList}
+
+Respond with the roast first, then on a new line "Sound: [filename]"`;
 
 			const geminiResponse = await fetch(
 				`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -164,13 +108,21 @@ export default {
 			}
 
 			const geminiData: any = await geminiResponse.json();
-			const roastText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text 
-				|| "Looking good... I guess?";
+			const fullText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text 
+				|| "Looking good... I guess? Sound: Alert.mp3";
+
+			// Parse roast and sound
+			const parts = fullText.split('Sound: ');
+			const roastText = parts[0].trim();
+			const selectedSound = parts[1]?.trim() || 'Alert.mp3';
+
+			// Ensure selected sound exists
+			const soundExists = sounds.some(s => s.name === selectedSound);
+			const finalSound = soundExists ? selectedSound : 'Alert.mp3';
 
 			return addCorsHeaders(new Response(JSON.stringify({
 				roast_text: roastText,
-				sound_effect: null,
-				description: "Image analyzed by Gemini Vision"
+				audio_file: `https://pub-2e1d977b8e1344cf949f6a4c8dc4cb35.r2.dev/${finalSound}`
 			}), {
 				status: 200,
 				headers: { 'Content-Type': 'application/json' }
