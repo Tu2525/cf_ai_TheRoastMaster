@@ -38,7 +38,7 @@ npm install -g wrangler
 ### 1. Clone & Setup
 
 ```
-git clone <my url>
+git clone https://github.com/Tu2525/cf_ai_TheRoastMaster.git
 ```
 
 ### 2. Configure Wrangler
